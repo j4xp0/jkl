@@ -2,9 +2,9 @@
 // security headers live here (not in middleware) because they are static — zero runtime logic
 import type { NextConfig } from "next";
 
-// security headers applied to every response (see PLAN.md §5.3)
-// content-security-policy is intentionally deferred to phase 8 — it requires
-// per-request nonces for scripts and starts in report-only mode
+// security headers applied to every response
+// content-security-policy is intentionally left out for now — it requires
+// per-request nonces for scripts, so it ships later, starting in report-only mode
 const securityHeaders = [
   {
     // forces the browser to talk to us only over https for 2 years (63072000 s),
