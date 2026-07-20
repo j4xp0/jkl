@@ -1,26 +1,58 @@
+/* defines the design system: two-mode color tokens, radii, easings and font wiring */
+/* every color in the app comes from these tokens — components never hardcode hex values */
+
 @import "tailwindcss";
 
+/* opts the document into both color schemes; the browser picks one from the
+   user's system setting, and every light-dark() below resolves against it —
+   no javascript and no manual toggle involved (a toggle may ship later) */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light dark;
 }
 
+/* @theme registers each variable as a design token AND generates utility
+   classes from it (e.g. --color-bg -> bg-bg / text-bg); tokens use oklch only
+   and carry both modes inline: light-dark(<light value>, <dark value>) */
+@theme {
+  /* deep navy in the dark; near-white with the same cool hue in the light */
+  --color-bg: light-dark(oklch(0.98 0.01 275), oklch(0.13 0.02 275));
+
+  /* surfaces sit slightly off the background so cards stay distinguishable */
+  --color-surface: light-dark(oklch(0.94 0.015 275), oklch(0.18 0.03 275));
+
+  /* primary text: near-black on light, near-white on dark */
+  --color-text: light-dark(oklch(0.17 0.02 275), oklch(0.97 0.005 275));
+
+  /* secondary text keeps a similar perceived distance from bg in both modes */
+  --color-text-dim: light-dark(oklch(0.45 0.02 275), oklch(0.72 0.02 275));
+
+  /* violet accent; the light variant drops lightness to ~0.48 so it holds
+     aa contrast (>= 4.5:1) both as text on the light bg and as a button
+     background under white label text — the dark-mode 0.72 would fail there */
+  --color-accent: light-dark(oklch(0.48 0.19 300), oklch(0.72 0.19 300));
+
+  /* cyan accent — the second aurora blob color; darkened in light mode
+     for the same contrast reason as --color-accent */
+  --color-accent-2: light-dark(oklch(0.50 0.13 210), oklch(0.80 0.14 210));
+
+  /* shared rounding for cards and other large surfaces */
+  --radius-card: 1.25rem;
+
+  /* snappy easing with a slight overshoot for "physical" micro-interactions */
+  --ease-snappy: cubic-bezier(0.2, 0.9, 0.25, 1.05);
+}
+
+/* "inline" makes the generated utilities embed the resolved value instead of
+   a var() reference — required here because these variables come from
+   next/font at runtime and live outside the @theme scope */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* base canvas; tailwind preflight already applies --font-sans (geist) to the
+   document, so no font-family override is needed here */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
 }
