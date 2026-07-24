@@ -1,4 +1,4 @@
-// home page (server component) — temporary design token demo until the real
+// home page (server component) – temporary design token demo until the real
 // shortener ui ships; exercises the full token set, the glass surface and the
 // motion rules so both color modes can be checked at a glance
 
@@ -53,7 +53,7 @@ export default function Home() {
             because bg always sits at the opposite lightness pole of the
             accent, which keeps the contrast aa-safe in both modes.
             motion-reduce variants neutralize every movement for users with
-            "reduce motion" enabled — the button then changes nothing on
+            "reduce motion" enabled – the button then changes nothing on
             hover/press. the button is decorative for now and gains a real
             action when the shortener form ships */}
         <button

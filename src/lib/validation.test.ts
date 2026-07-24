@@ -1,4 +1,4 @@
-// tests for the url validation schema — the security core of the shortener
+// tests for the url validation schema – the security core of the shortener
 // every rejection case here maps to a real attack vector: script-scheme
 // injection, redirect loops on the own host, and oversized payloads
 
@@ -6,7 +6,12 @@ import { afterEach, describe, expect, it } from "vitest";
 import { vi } from "vitest";
 // imports through the "@/*" alias on purpose: it keeps test imports identical
 // to app code and proves the alias resolution works in the test runner
-import { createUrlSchema, getAppHostname, MAX_URL_LENGTH } from "@/lib/validation";
+import {
+  createUrlSchema,
+  getAppBaseUrl,
+  getAppHostname,
+  MAX_URL_LENGTH,
+} from "@/lib/validation";
 
 // pins the app hostname explicitly so tests do not depend on the environment
 const schema = createUrlSchema("localhost");
@@ -150,5 +155,12 @@ describe("getAppHostname – environment parsing", () => {
   it("throws when the variable is not an http(s) url", () => {
     vi.stubEnv("NEXT_PUBLIC_APP_URL", "javascript:alert(1)");
     expect(() => getAppHostname()).toThrow();
+  });
+
+  it("normalizes the base url to a clean origin", () => {
+    // a trailing slash or stray path in the env value must not leak into
+    // generated short links (no double slashes)
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "http://localhost:3000/");
+    expect(getAppBaseUrl()).toBe("http://localhost:3000");
   });
 });

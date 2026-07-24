@@ -12,14 +12,14 @@ import { z } from "zod";
 const RATE_LIMIT_REQUESTS = 10;
 const RATE_LIMIT_WINDOW = "10 m";
 
-// the message shown to a throttled user: friendly and deliberately vague —
+// the message shown to a throttled user: friendly and deliberately vague –
 // it never reveals the window size or remaining quota, so an abuser cannot
 // tune their request rate to sit just under the limit
 const RATE_LIMIT_MESSAGE =
   "Too many links created – please try again in a few minutes.";
 
 // validates upstash credentials from the environment; env vars are external
-// input and go through zod like everything else — values are referenced by
+// input and go through zod like everything else – values are referenced by
 // variable name only and never logged or echoed back
 const upstashEnvSchema = z.object({
   UPSTASH_REDIS_REST_URL: z.url({
@@ -32,7 +32,7 @@ const upstashEnvSchema = z.object({
 });
 
 // the result the rest of the app consumes: a plain domain value instead of
-// the raw upstash response — callers can surface `message` directly as a
+// the raw upstash response – callers can surface `message` directly as a
 // form error, and tests can fake this module without touching redis
 export type RateLimitResult = { ok: true } | { ok: false; message: string };
 
@@ -43,7 +43,7 @@ let cachedLimiter: Ratelimit | undefined;
 // builds the limiter on first use
 // fails closed by design: missing or malformed credentials are a deployment
 // mistake, and throwing loudly here surfaces it on the first request instead
-// of silently running without any spam protection — the caller catches this,
+// of silently running without any spam protection – the caller catches this,
 // logs the details server-side and shows the user a generic error
 function getLimiter(): Ratelimit {
   if (cachedLimiter) return cachedLimiter;
@@ -83,7 +83,7 @@ function getLimiter(): Ratelimit {
 export function getClientIp(headers: Headers): string {
   const forwardedFor = headers.get("x-forwarded-for");
   const clientIp = forwardedFor?.split(",")[0]?.trim();
-  // local development has no proxy and therefore no header — every request
+  // local development has no proxy and therefore no header – every request
   // then shares one bucket, which also makes the limit easy to test by hand
   return clientIp || "local";
 }
@@ -91,7 +91,7 @@ export function getClientIp(headers: Headers): string {
 // checks whether the identifier is within its creation quota
 // note on redis outages: the upstash sdk applies a built-in timeout (5 s by
 // default) and reports the request as allowed when redis does not answer in
-// time — a transient outage degrades spam protection instead of taking the
+// time – a transient outage degrades spam protection instead of taking the
 // whole service down, a deliberate availability-over-protection trade-off
 // (distinct from the missing-credentials case above, which fails closed)
 export async function checkRateLimit(

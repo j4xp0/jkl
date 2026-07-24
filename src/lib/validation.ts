@@ -1,5 +1,5 @@
 // validation schemas for every external input that enters the shortener
-// security posture: whitelist over blacklist — only inputs that match the
+// security posture: whitelist over blacklist – only inputs that match the
 // strict shape are accepted, everything else is rejected with a generic message
 
 import { z } from "zod";
@@ -10,28 +10,37 @@ export const MAX_URL_LENGTH = 2048;
 
 // validates the app's own base url coming from the environment;
 // env vars are external input too, so they go through zod like everything else
-// (the protocol whitelist also applies here — the app itself must be http/https)
+// (the protocol whitelist also applies here – the app itself must be http/https)
 const appBaseUrlSchema = z.url({
   protocol: /^https?$/,
   error: "NEXT_PUBLIC_APP_URL must be a valid http(s) url",
 });
 
-// resolves the app's own hostname from the environment
-// throws early (fail closed) when the variable is missing or malformed —
-// without a known own-host the redirect-loop protection cannot work,
-// so the app refuses to validate urls at all instead of guessing
+// resolves the app's public base url from the environment, normalized to the
+// origin form (scheme://host[:port]); short links are built by appending a
+// slug to this value
+// throws early (fail closed) when the variable is missing or malformed –
+// without a known own base url neither link building nor the redirect-loop
+// protection can work, so the app refuses to proceed instead of guessing
 // note: the error message names the variable but never echoes its value,
 // so a malformed secret-adjacent env entry never leaks into logs
-export function getAppHostname(): string {
+export function getAppBaseUrl(): string {
   const parsed = appBaseUrlSchema.safeParse(process.env.NEXT_PUBLIC_APP_URL);
   if (!parsed.success) {
     throw new Error(
       "NEXT_PUBLIC_APP_URL is missing or invalid – set it to the app's base url"
     );
   }
+  // origin drops any path, query or trailing slash the env value may carry,
+  // so appending "/slug" can never produce a double slash or a stray path
+  return new URL(parsed.data).origin;
+}
+
+// resolves the app's own hostname for the redirect-loop check
+export function getAppHostname(): string {
   // new URL() lowercases the hostname and strips the port, which gives a
   // canonical value to compare against
-  return new URL(parsed.data).hostname;
+  return new URL(getAppBaseUrl()).hostname;
 }
 
 // builds the schema for user-submitted urls

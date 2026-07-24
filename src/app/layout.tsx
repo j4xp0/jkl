@@ -23,14 +23,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    // lang matches the ui language — screen readers pick pronunciation from it
+    // lang matches the ui language – screen readers pick pronunciation from it
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         {/* decorative aurora backdrop: a few large, heavily blurred color
-            blobs sitting behind all content — glass surfaces need something
+            blobs sitting behind all content – glass surfaces need something
             colorful underneath to blur, otherwise they read as flat gray.
             static for now; subtle motion may ship with the visual polish pass */}
         {/* fixed + inset-0 pins the layer to the viewport so it never scrolls

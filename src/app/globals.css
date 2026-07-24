@@ -1,10 +1,10 @@
 /* defines the design system: two-mode color tokens, radii, easings and font wiring */
-/* every color in the app comes from these tokens — components never hardcode hex values */
+/* every color in the app comes from these tokens – components never hardcode hex values */
 
 @import "tailwindcss";
 
 /* opts the document into both color schemes; the browser picks one from the
-   user's system setting, and every light-dark() below resolves against it —
+   user's system setting, and every light-dark() below resolves against it –
    no javascript and no manual toggle involved (a toggle may ship later) */
 :root {
   color-scheme: light dark;
@@ -28,17 +28,17 @@
 
   /* violet accent; the light variant drops lightness to ~0.48 so it holds
      aa contrast (>= 4.5:1) both as text on the light bg and as a button
-     background under white label text — the dark-mode 0.72 would fail there */
+     background under white label text – the dark-mode 0.72 would fail there */
   --color-accent: light-dark(oklch(0.48 0.19 300), oklch(0.72 0.19 300));
 
-  /* cyan accent — the second aurora blob color; darkened in light mode
+  /* cyan accent – the second aurora blob color; darkened in light mode
      for the same contrast reason as --color-accent */
   --color-accent-2: light-dark(oklch(0.50 0.13 210), oklch(0.80 0.14 210));
 
   /* shared rounding for cards and other large surfaces */
   --radius-card: 1.25rem;
 
-  /* specular top edge for glass surfaces — always a whitish glint (a light
+  /* specular top edge for glass surfaces – always a whitish glint (a light
      edge reads as "catching light" in both modes), but stronger on light
      backgrounds where a faint one would disappear */
   --color-glass-highlight: light-dark(oklch(1 0 0 / 0.65), oklch(1 0 0 / 0.14));
@@ -48,7 +48,7 @@
 }
 
 /* "inline" makes the generated utilities embed the resolved value instead of
-   a var() reference — required here because these variables come from
+   a var() reference – required here because these variables come from
    next/font at runtime and live outside the @theme scope */
 @theme inline {
   --font-sans: var(--font-geist-sans);
@@ -67,12 +67,12 @@ body {
    it derives every color from tokens via color-mix instead of fixed white/…
    values, so the same class works in both color modes without overrides */
 @utility glass {
-  /* semi-transparent wash of the surface token — light-dark() inside the
+  /* semi-transparent wash of the surface token – light-dark() inside the
      token already swaps it per mode; color-mix() blends it with transparent
      to get "token with alpha" without hardcoding any hex value */
   background-color: color-mix(in oklab, var(--color-surface) 55%, transparent);
 
-  /* blurs whatever sits behind the element (the aurora backdrop) — this is
+  /* blurs whatever sits behind the element (the aurora backdrop) – this is
      what actually sells the frosted-glass effect; safari still ships the
      -webkit- prefixed property, so both are set */
   -webkit-backdrop-filter: blur(24px);
@@ -82,7 +82,7 @@ body {
      light-on-dark in dark mode, so the edge stays visible on both */
   border: 1px solid color-mix(in oklab, var(--color-text) 14%, transparent);
 
-  /* 1px inner highlight along the top edge — fakes light hitting the rim of
+  /* 1px inner highlight along the top edge – fakes light hitting the rim of
      the glass; inset keeps it inside the border-radius of the element */
   box-shadow: inset 0 1px 0 0 var(--color-glass-highlight);
 }

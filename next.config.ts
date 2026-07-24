@@ -1,9 +1,9 @@
 // configures next.js at the framework level: react compiler + http security headers
-// security headers live here (not in middleware) because they are static — zero runtime logic
+// security headers live here (not in middleware) because they are static – zero runtime logic
 import type { NextConfig } from "next";
 
 // security headers applied to every response
-// content-security-policy is intentionally left out for now — it requires
+// content-security-policy is intentionally left out for now – it requires
 // per-request nonces for scripts, so it ships later, starting in report-only mode
 const securityHeaders = [
   {
@@ -11,7 +11,7 @@ const securityHeaders = [
     // covering all subdomains; protects against protocol-downgrade and mitm attacks
     // (an attacker on open wifi cannot silently redirect the victim to plain http);
     // "preload" opts the domain into browsers' built-in hsts lists;
-    // note: browsers ignore hsts on plain-http localhost — it activates on https (vercel)
+    // note: browsers ignore hsts on plain-http localhost – it activates on https (vercel)
     key: "Strict-Transport-Security",
     value: "max-age=63072000; includeSubDomains; preload",
   },
@@ -25,7 +25,7 @@ const securityHeaders = [
   {
     // limits how much of the current url leaks in the referer header:
     // same-origin gets the full url, cross-origin gets only our origin,
-    // and downgraded (https→http) requests get nothing — prevents leaking
+    // and downgraded (https→http) requests get nothing – prevents leaking
     // slugs or query strings to the sites our short links redirect to
     key: "Referrer-Policy",
     value: "strict-origin-when-cross-origin",
@@ -51,12 +51,12 @@ const nextConfig: NextConfig = {
   reactCompiler: true,
 
   // removes the default "x-powered-by: next.js" response header;
-  // advertising the framework is information disclosure (fingerprinting) —
+  // advertising the framework is information disclosure (fingerprinting) –
   // it helps attackers pick exploits matching our stack for free
   poweredByHeader: false,
 
   // attaches the security headers to every route ("/(.*)" matches all paths),
-  // including future /{slug} redirects and 404 responses — no response ships bare
+  // including future /{slug} redirects and 404 responses – no response ships bare
   async headers() {
     return [
       {
