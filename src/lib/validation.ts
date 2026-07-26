@@ -43,6 +43,15 @@ export function getAppHostname(): string {
   return new URL(getAppBaseUrl()).hostname;
 }
 
+// pre-validates slugs taken from the request path before any database work
+// the strict character class (url-safe alphabet only) and length window mean
+// garbage requests – scanner probes, traversal attempts, overlong ids – get
+// a fast 404 without costing a query; 4 to 16 characters covers generated
+// slugs today and leaves headroom for custom aliases
+export const slugSchema = z
+  .string()
+  .regex(/^[a-zA-Z0-9_-]{4,16}$/, { error: "Not found" });
+
 // builds the schema for user-submitted urls
 // takes the app hostname as an argument so tests can pin it explicitly
 // and production code can inject the value resolved from the environment

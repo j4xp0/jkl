@@ -11,6 +11,7 @@ import {
   getAppBaseUrl,
   getAppHostname,
   MAX_URL_LENGTH,
+  slugSchema,
 } from "@/lib/validation";
 
 // pins the app hostname explicitly so tests do not depend on the environment
@@ -133,6 +134,22 @@ describe("url schema – shape and size limits", () => {
   it("rejects non-string input (forms can be posted programmatically)", () => {
     const result = schema.safeParse(12345);
     expect(result.success).toBe(false);
+  });
+});
+
+describe("slug schema – path pre-validation", () => {
+  it("accepts a typical generated slug", () => {
+    expect(slugSchema.safeParse("x7Kp2_a").success).toBe(true);
+  });
+
+  it("rejects slugs outside the 4–16 length window", () => {
+    expect(slugSchema.safeParse("abc").success).toBe(false);
+    expect(slugSchema.safeParse("a".repeat(17)).success).toBe(false);
+  });
+
+  it("rejects characters outside the url-safe alphabet", () => {
+    expect(slugSchema.safeParse("abc$12").success).toBe(false);
+    expect(slugSchema.safeParse("../abcd").success).toBe(false);
   });
 });
 
