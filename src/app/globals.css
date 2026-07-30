@@ -35,6 +35,12 @@
      for the same contrast reason as --color-accent */
   --color-accent-2: light-dark(oklch(0.50 0.13 210), oklch(0.80 0.14 210));
 
+  /* error text (validation and failure messages) – red pulled slightly warm
+     but with the same chroma discipline as the accents; the light variant
+     drops lightness so it holds aa contrast on the near-white background,
+     mirroring how --color-accent handles the same problem */
+  --color-danger: light-dark(oklch(0.50 0.19 25), oklch(0.72 0.19 25));
+
   /* shared rounding for cards and other large surfaces */
   --radius-card: 1.25rem;
 
@@ -85,4 +91,45 @@ body {
   /* 1px inner highlight along the top edge – fakes light hitting the rim of
      the glass; inset keeps it inside the border-radius of the element */
   box-shadow: inset 0 1px 0 0 var(--color-glass-highlight);
+}
+
+/* rare gradient "phase shift" on the logo: an overlay copy of the logo text
+   carries the reversed gradient and fades in and out, which makes the two
+   accent hues appear to travel along the glyphs. only opacity animates –
+   a background-position sweep would look similar but costs paint work on
+   every frame, while opacity stays on the compositor */
+@utility logo-phase {
+  /* invisible outside the event window; the keyframes below raise it briefly */
+  opacity: 0;
+
+  /* static accent glow that simply rides along with the overlay's opacity;
+     drop-shadow follows the rendered gradient pixels – text-shadow would
+     bleed through the transparent glyphs of background-clipped text and
+     smear the letters */
+  filter: drop-shadow(
+    0 0 6px color-mix(in oklab, var(--color-accent) 60%, transparent)
+  );
+  animation: logo-phase 9s ease-in-out infinite;
+
+  /* reduced motion: the overlay never appears, leaving the static gradient
+     pill with zero movement */
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+/* one short (~1 s) event per ~9 s cycle: the timeline stays quiet for the
+   first 88% and concentrates the whole fade-in/fade-out into the final
+   stretch; ease-in-out keeps both edges of the event soft */
+@keyframes logo-phase {
+  0%,
+  88% {
+    opacity: 0;
+  }
+  94% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }
