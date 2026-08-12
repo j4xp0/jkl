@@ -101,6 +101,9 @@ describe("createLink", () => {
     expect(result).toEqual({
       status: "error",
       message: "Too many links created – please try again in a few minutes.",
+      // even a throttled submission echoes the input back, so the form can
+      // restore what the user typed
+      submittedUrl: "javascript:alert(1)",
     });
     expect(valuesMock).not.toHaveBeenCalled();
   });
@@ -113,6 +116,8 @@ describe("createLink", () => {
       expect(result.fieldErrors?.url).toBeTruthy();
       // the message stays user-facing: no zod internals, no technical jargon
       expect(result.message).toBeUndefined();
+      // the rejected input comes back verbatim as the echo for the form
+      expect(result.submittedUrl).toBe("javascript:alert(1)");
     }
     expect(valuesMock).not.toHaveBeenCalled();
   });
@@ -143,6 +148,7 @@ describe("createLink", () => {
     expect(result).toEqual({
       status: "error",
       message: "Something went wrong – please try again.",
+      submittedUrl: "https://example.com",
     });
     expect(valuesMock).toHaveBeenCalledTimes(3);
     // details of the failure are logged server-side, never shown to the user
@@ -157,6 +163,7 @@ describe("createLink", () => {
     expect(result).toEqual({
       status: "error",
       message: "Something went wrong – please try again.",
+      submittedUrl: "https://example.com",
     });
     // retrying only makes sense for slug collisions; infrastructure errors
     // fail fast instead of tripling the load on a struggling database

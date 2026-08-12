@@ -8,6 +8,7 @@
 
 import { useActionState } from "react";
 import { createLink, type ActionState } from "@/lib/actions";
+import { ResultCard } from "@/components/ResultCard";
 import { SubmitButton } from "@/components/SubmitButton";
 
 // the form starts in the idle variant of the action state union: nothing to
@@ -42,7 +43,11 @@ export function ShortenerForm() {
             rules – the zod schema on the server stays the single source of
             truth, so error messages are consistent everywhere.
             aria-invalid and aria-describedby point assistive tech at the
-            error text below, but only while an error actually exists */}
+            error text below, but only while an error actually exists.
+            defaultValue restores the echoed input after an error: react
+            resets uncontrolled fields to their defaultValue once the action
+            settles, so the echo keeps the user's typing through a failed
+            submit while a success (undefined) clears the field */}
         <input
           id="url"
           name="url"
@@ -51,6 +56,7 @@ export function ShortenerForm() {
           spellCheck={false}
           autoComplete="off"
           placeholder="https://example.com/a/very/long/path"
+          defaultValue={state.status === "error" ? state.submittedUrl : undefined}
           aria-invalid={fieldError ? true : undefined}
           aria-describedby={fieldError ? "url-error" : undefined}
           className="mt-2 w-full rounded-full border border-text/15 bg-surface/50 px-5 py-2.5 text-sm placeholder:text-text-dim focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
@@ -75,18 +81,12 @@ export function ShortenerForm() {
         </div>
         <SubmitButton />
       </form>
-      {/* success slot: announces the short link when it appears; a plain
-          readout for now, until the full result card with copy-to-clipboard
-          ships. break-all lets long links wrap instead of overflowing the
-          card on narrow screens */}
-      <div aria-live="polite">
-        {shortUrl ? (
-          <div className="mt-6 rounded-lg border border-text/10 bg-surface/50 p-4">
-            <p className="text-xs text-text-dim">Your short link</p>
-            <p className="mt-1 font-mono text-sm break-all">{shortUrl}</p>
-          </div>
-        ) : null}
-      </div>
+      {/* success: the result card takes focus on mount, which announces the
+          new link (no live region here – focus plus live region would
+          announce the same event twice). keying by the short url remounts
+          the card per result, so each new link refocuses and starts with a
+          clean copy state */}
+      {shortUrl ? <ResultCard key={shortUrl} shortUrl={shortUrl} /> : null}
     </div>
   );
 }

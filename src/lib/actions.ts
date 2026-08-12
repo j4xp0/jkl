@@ -14,11 +14,19 @@ import { getAppBaseUrl, getUrlSchema } from "@/lib/validation";
 
 // the form state consumed by useActionState: a discriminated union, so the
 // ui can switch on `status` and typescript narrows the available fields
-// (shortUrl exists only on success, error details only on error)
+// (shortUrl exists only on success, error details only on error).
+// submittedUrl echoes the user's raw input back on errors: react resets
+// uncontrolled form fields to their defaultValue after an action, so without
+// the echo a validation error would wipe what the user typed
 export type ActionState =
   | { status: "idle" }
   | { status: "success"; shortUrl: string }
-  | { status: "error"; message?: string; fieldErrors?: { url?: string } };
+  | {
+      status: "error";
+      message?: string;
+      fieldErrors?: { url?: string };
+      submittedUrl?: string;
+    };
 
 // the user-facing fallback for any unexpected failure; deliberately generic –
 // internals (db errors, stack traces) stay in server logs only
@@ -58,17 +66,26 @@ export async function createLink(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
+  // declared ahead of the try block so the catch-all path can echo it too;
+  // every error variant carries the submitted text back so the form can
+  // refill the input after react's automatic post-action reset. the echo is
+  // inert data: it only ever feeds a defaultValue attribute (which react
+  // escapes) – it never reaches a query, a log line or the database
+  let submittedUrl: string | undefined;
   try {
+    const rawUrl = formData.get("url");
+    submittedUrl = typeof rawUrl === "string" ? rawUrl : undefined;
+
     // identifies the caller by ip and rejects over-quota clients up front
     const requestHeaders = await headers();
     const rateLimit = await checkRateLimit(getClientIp(requestHeaders));
     if (!rateLimit.ok) {
-      return { status: "error", message: rateLimit.message };
+      return { status: "error", message: rateLimit.message, submittedUrl };
     }
 
     // validates the raw form value; the schema enforces trim, length cap,
     // http/https-only protocol and the own-host block
-    const validated = getUrlSchema().safeParse(formData.get("url"));
+    const validated = getUrlSchema().safeParse(rawUrl);
     if (!validated.success) {
       // surfaces only the first issue – the form shows a single message
       // under the field, and the schema's messages are already user-friendly
@@ -77,6 +94,7 @@ export async function createLink(
         fieldErrors: {
           url: validated.error.issues[0]?.message ?? "Please enter a valid URL.",
         },
+        submittedUrl,
       };
     }
 
@@ -102,6 +120,6 @@ export async function createLink(
     // full details go to the server log for debugging; the user gets only
     // the generic message – error internals could reveal schema or infra
     console.error("createLink failed:", error);
-    return { status: "error", message: GENERIC_ERROR_MESSAGE };
+    return { status: "error", message: GENERIC_ERROR_MESSAGE, submittedUrl };
   }
 }
