@@ -18,17 +18,18 @@ export default function Home() {
             gradient and briefly fades in every few seconds (a css-only
             "phase shift" – see the logo-phase utility). the overlay is
             aria-hidden so screen readers announce "jkl" only once */}
-        <p className="relative rounded-full border border-text/15 px-4 py-1.5 font-mono text-base">
+        <p className="relative rounded-full border border-text/15 px-[1em] py-[0.375em] font-mono text-2xl">
           <span className="bg-linear-to-r from-accent to-accent-2 bg-clip-text text-transparent">
             jkl
           </span>
           {/* absolute inset-0 plus the pill's own padding makes the overlay
               glyphs sit exactly on top of the base glyphs – same font, same
               size inherited from the pill, so the two layers align
-              pixel-perfectly */}
+              pixel-perfectly. padding uses em, so it follows text-* and stays
+      identical across both layers by construction */}
           <span
             aria-hidden="true"
-            className="logo-phase absolute inset-0 px-4 py-1.5 bg-linear-to-r from-accent-2 to-accent bg-clip-text text-transparent"
+            className="logo-phase absolute inset-0 px-[1em] py-[0.375em] bg-linear-to-r from-accent-2 to-accent bg-clip-text text-transparent"
           >
             jkl
           </span>
