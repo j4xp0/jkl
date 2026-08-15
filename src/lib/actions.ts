@@ -42,6 +42,64 @@ const SLUG_LENGTH = 7;
 // instead of hammering the database
 const MAX_SLUG_ATTEMPTS = 3;
 
+// matches the rfc 3986 scheme grammar: ALPHA *( ALPHA / DIGIT / "+" / "-" /
+// "." ) followed by ":" – any hit means the input already declares a scheme.
+// the [a-zA-Z] classes cover both letter cases because schemes are
+// case-insensitive per the rfc ("MAILTO:" declares a scheme as much as
+// "mailto:"). note: with the @ ban below in place, the uppercase half is a
+// layered safeguard with no blackbox-observable effect of its own – every
+// uppercase-scheme input that would slip past a lowercase-only pattern
+// still dies on the @ ban or as an invalid port after prefixing – so no
+// behavioral test covers it; it stays for rfc conformance and defense in
+// depth, and the helper below deliberately stays private rather than being
+// exported just to unit-test this line
+const SCHEME_PATTERN = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
+
+// widens accepted input to bare domains: pasting "example.com/path" works
+// like "https://example.com/path", while plain text such as "abc" keeps
+// failing validation exactly as before
+// a naive "no scheme -> prefix https://" would break that second promise:
+// new URL("https://abc") parses fine, so "abc" would suddenly get shortened
+// – hence the prefix only applies when the part before the path looks like
+// a real host
+function normalizeUrlInput(raw: string): string {
+  // strips copy-paste whitespace before any shape checks run
+  const trimmed = raw.trim();
+
+  // input carrying a scheme – http:, ftp:, mailto:, javascript: – passes
+  // through untouched so the protocol whitelist keeps the final say.
+  // this branch also catches "example.com:8080/path": "example.com:"
+  // matches the scheme grammar, and host:port vs scheme:path is genuinely
+  // ambiguous without guessing, so such input is left alone (and rejected
+  // by the whitelist) rather than second-guessed
+  if (SCHEME_PATTERN.test(trimmed)) return trimmed;
+
+  // the candidate host is everything before the first path, query or
+  // fragment delimiter
+  const hostCandidate = trimmed.split(/[/?#]/, 1)[0] ?? "";
+  const labels = hostCandidate.split(".");
+  const lastLabel = labels[labels.length - 1] ?? "";
+
+  // all four checks must hold before the prefix is added:
+  // - contains a dot: rejects single words ("abc") that would otherwise
+  //   parse fine once prefixed
+  // - no whitespace: hosts never contain spaces, pasted sentences do
+  // - no @: prefixing "google.com@evil.com" would parse google.com as
+  //   userinfo and evil.com as the real host – a link-cloaking classic
+  //   that fails validation today and must keep failing
+  // - last label has 2+ chars and a letter: real tlds look like this
+  //   (punycode xn--… passes – it contains letters); bare ip addresses
+  //   such as 192.168.1.1 stay unprefixed, their last label is a digit
+  const looksLikeHost =
+    hostCandidate.includes(".") &&
+    !/\s/.test(hostCandidate) &&
+    !hostCandidate.includes("@") &&
+    lastLabel.length >= 2 &&
+    /[a-zA-Z]/.test(lastLabel);
+
+  return looksLikeHost ? `https://${trimmed}` : trimmed;
+}
+
 // narrows an unknown error to a postgres unique-constraint violation
 // drizzle wraps driver errors in DrizzleQueryError and keeps the original
 // as `cause`; the neon driver exposes the postgres sqlstate there, where
@@ -83,9 +141,14 @@ export async function createLink(
       return { status: "error", message: rateLimit.message, submittedUrl };
     }
 
-    // validates the raw form value; the schema enforces trim, length cap,
-    // http/https-only protocol and the own-host block
-    const validated = getUrlSchema().safeParse(rawUrl);
+    // validates the normalized value (bare domains get their https:// here)
+    // while the echo above keeps the raw one – the user gets back exactly
+    // what they typed, not what the server made of it. the schema still
+    // enforces the length cap, the http/https-only protocol whitelist and
+    // the own-host block on whatever comes out of normalization
+    const validated = getUrlSchema().safeParse(
+      typeof rawUrl === "string" ? normalizeUrlInput(rawUrl) : rawUrl
+    );
     if (!validated.success) {
       // surfaces only the first issue – the form shows a single message
       // under the field, and the schema's messages are already user-friendly

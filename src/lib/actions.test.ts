@@ -170,4 +170,163 @@ describe("createLink", () => {
     expect(valuesMock).toHaveBeenCalledTimes(1);
     expect(console.error).toHaveBeenCalled();
   });
+
+  // covers the scheme-less input normalization: bare domains gain https://
+  // before validation, everything else must behave exactly as before –
+  // these tests observe only createLink's contract (state out, row in),
+  // never the helper's internals
+  describe("url normalization", () => {
+    it("prefixes a bare domain with a path and stores the url verbatim", async () => {
+      valuesMock.mockResolvedValueOnce(undefined);
+
+      const result = await createLink(
+        initialState,
+        formDataWith(
+          "cdaction.pl/teksty/gothic-remake-porady-na-start-5-rzeczy-ktore-chcialbym-wiedziec-przed-zagraniem/"
+        )
+      );
+
+      expect(result.status).toBe("success");
+      // exact match on purpose – this doubles as a canary: if the validator
+      // ever started rewriting urls (trailing slash, case folding), the
+      // character-for-character comparison here would break loudly
+      expect(valuesMock.mock.calls[0]?.[0]).toMatchObject({
+        url: "https://cdaction.pl/teksty/gothic-remake-porady-na-start-5-rzeczy-ktore-chcialbym-wiedziec-przed-zagraniem/",
+      });
+    });
+
+    it("prefixes a bare domain without a path", async () => {
+      valuesMock.mockResolvedValueOnce(undefined);
+
+      const result = await createLink(initialState, formDataWith("example.com"));
+
+      expect(result.status).toBe("success");
+      // no trailing slash appears: the prefix is plain string concatenation
+      // and the validator passes the value through unrewritten
+      expect(valuesMock.mock.calls[0]?.[0]).toMatchObject({
+        url: "https://example.com",
+      });
+    });
+
+    it("keeps an explicit http scheme untouched", async () => {
+      valuesMock.mockResolvedValueOnce(undefined);
+
+      const result = await createLink(
+        initialState,
+        formDataWith("http://example.com")
+      );
+
+      expect(result.status).toBe("success");
+      // normalization never upgrades declared schemes – http stays http
+      expect(valuesMock.mock.calls[0]?.[0]).toMatchObject({
+        url: "http://example.com",
+      });
+    });
+
+    it("still rejects ftp urls", async () => {
+      const result = await createLink(
+        initialState,
+        formDataWith("ftp://example.com")
+      );
+
+      expect(result.status).toBe("error");
+      if (result.status === "error") {
+        expect(result.fieldErrors?.url).toBeTruthy();
+      }
+      expect(valuesMock).not.toHaveBeenCalled();
+    });
+
+    it("still rejects javascript: input without prefixing it", async () => {
+      const result = await createLink(
+        initialState,
+        formDataWith("javascript:alert(1)")
+      );
+
+      expect(result.status).toBe("error");
+      if (result.status === "error") {
+        expect(result.fieldErrors?.url).toBeTruthy();
+        // the raw echo proves the scheme-carrying input was never touched
+        expect(result.submittedUrl).toBe("javascript:alert(1)");
+      }
+      expect(valuesMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects MAILTO:user@example.com like any input with @ before the path", async () => {
+      // second coverage of the @ ban, not of scheme case handling: even
+      // with a lowercase-only scheme pattern this input would be caught by
+      // the @ ban, so the two regex variants are indistinguishable here –
+      // the uppercase class in the scheme pattern is behaviorally
+      // unobservable while the @ ban holds (see the pattern's comment)
+      const result = await createLink(
+        initialState,
+        formDataWith("MAILTO:user@example.com")
+      );
+
+      expect(result.status).toBe("error");
+      if (result.status === "error") {
+        expect(result.fieldErrors?.url).toBeTruthy();
+        expect(result.submittedUrl).toBe("MAILTO:user@example.com");
+      }
+      expect(valuesMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects google.com@evil.com without prefixing it", async () => {
+      // prefixing would parse google.com as userinfo and evil.com as the
+      // real host – the classic link-cloaking shape must keep failing
+      const result = await createLink(
+        initialState,
+        formDataWith("google.com@evil.com")
+      );
+
+      expect(result.status).toBe("error");
+      if (result.status === "error") {
+        expect(result.fieldErrors?.url).toBeTruthy();
+        expect(result.submittedUrl).toBe("google.com@evil.com");
+      }
+      expect(valuesMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects example.com:8080/path (documented decision)", async () => {
+      // deliberate: "example.com:" matches the rfc 3986 scheme grammar, and
+      // telling host:port apart from scheme:path is impossible without
+      // guessing – such input goes to validation untouched and fails the
+      // protocol whitelist; explicit-scheme urls with ports keep working
+      const result = await createLink(
+        initialState,
+        formDataWith("example.com:8080/path")
+      );
+
+      expect(result.status).toBe("error");
+      if (result.status === "error") {
+        expect(result.fieldErrors?.url).toBeTruthy();
+      }
+      expect(valuesMock).not.toHaveBeenCalled();
+    });
+
+    it("still rejects plain text and echoes it verbatim", async () => {
+      const result = await createLink(initialState, formDataWith("abc"));
+
+      expect(result.status).toBe("error");
+      if (result.status === "error") {
+        expect(result.fieldErrors?.url).toBeTruthy();
+        // the echo carries the raw input, not the normalized value
+        expect(result.submittedUrl).toBe("abc");
+      }
+      expect(valuesMock).not.toHaveBeenCalled();
+    });
+
+    it("trims surrounding whitespace before deciding on the prefix", async () => {
+      valuesMock.mockResolvedValueOnce(undefined);
+
+      const result = await createLink(
+        initialState,
+        formDataWith("   example.com   ")
+      );
+
+      expect(result.status).toBe("success");
+      expect(valuesMock.mock.calls[0]?.[0]).toMatchObject({
+        url: "https://example.com",
+      });
+    });
+  });
 });
