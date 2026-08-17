@@ -46,13 +46,20 @@ const MAX_SLUG_ATTEMPTS = 3;
 // "." ) followed by ":" – any hit means the input already declares a scheme.
 // the [a-zA-Z] classes cover both letter cases because schemes are
 // case-insensitive per the rfc ("MAILTO:" declares a scheme as much as
-// "mailto:"). note: with the @ ban below in place, the uppercase half is a
-// layered safeguard with no blackbox-observable effect of its own – every
-// uppercase-scheme input that would slip past a lowercase-only pattern
-// still dies on the @ ban or as an invalid port after prefixing – so no
-// behavioral test covers it; it stays for rfc conformance and defense in
-// depth, and the helper below deliberately stays private rather than being
-// exported just to unit-test this line
+// "mailto:"). the uppercase half is observable behavior, not just rfc
+// hygiene – counterexample: "COM.EXAMPLE.APP://x" (reverse-domain schemes
+// like this exist in the wild, and the scheme grammar allows dots). a
+// lowercase-only pattern would miss that scheme, "COM.EXAMPLE.APP:" would
+// then pass every host-candidate check below (dot, no whitespace, no @,
+// lettered last label), and the prefixed "https://COM.EXAMPLE.APP://x"
+// parses as host com.example.app with an empty port (the trailing ":"
+// before the first slash) and path "//x" – a valid https url that would
+// get shortened. this pattern leaves the input untouched instead, and the
+// protocol whitelist rejects it. dot-free uppercase schemes without "//"
+// ("HTTPS:example.com") die either way, but only because zod's url format
+// check (as of zod 4.4.3) rejects any scheme not followed by "//" – an
+// empirical wall of the current version, not a spec guarantee, so this
+// pattern does not lean on it
 const SCHEME_PATTERN = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
 
 // widens accepted input to bare domains: pasting "example.com/path" works

@@ -223,6 +223,28 @@ describe("createLink", () => {
       });
     });
 
+    it("rejects COM.EXAMPLE.APP://x – uppercase schemes count as schemes", async () => {
+      // observable proof of the scheme pattern's uppercase class, surfaced
+      // by dotted reverse-domain schemes: a lowercase-only pattern would
+      // not recognize the scheme, "COM.EXAMPLE.APP:" would pass every
+      // host-candidate check (dot, no whitespace, no @, lettered last
+      // label), and the prefixed "https://COM.EXAMPLE.APP://x" parses as
+      // host com.example.app with an empty port and path "//x" – a valid
+      // https url that would get shortened. the rfc pattern leaves the
+      // input untouched, so the protocol whitelist rejects it here
+      const result = await createLink(
+        initialState,
+        formDataWith("COM.EXAMPLE.APP://x")
+      );
+
+      expect(result.status).toBe("error");
+      if (result.status === "error") {
+        expect(result.fieldErrors?.url).toBeTruthy();
+        expect(result.submittedUrl).toBe("COM.EXAMPLE.APP://x");
+      }
+      expect(valuesMock).not.toHaveBeenCalled();
+    });
+
     it("still rejects ftp urls", async () => {
       const result = await createLink(
         initialState,
@@ -254,9 +276,9 @@ describe("createLink", () => {
     it("rejects MAILTO:user@example.com like any input with @ before the path", async () => {
       // second coverage of the @ ban, not of scheme case handling: even
       // with a lowercase-only scheme pattern this input would be caught by
-      // the @ ban, so the two regex variants are indistinguishable here –
-      // the uppercase class in the scheme pattern is behaviorally
-      // unobservable while the @ ban holds (see the pattern's comment)
+      // the @ ban, so the two regex variants are indistinguishable on this
+      // particular input – the dotted-scheme test above is the one that
+      // actually observes the uppercase class
       const result = await createLink(
         initialState,
         formDataWith("MAILTO:user@example.com")
