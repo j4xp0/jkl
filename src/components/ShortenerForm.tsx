@@ -1,13 +1,15 @@
 "use client";
 
 // url-shortening form: wires the createLink server action into react form
-// state via useActionState and renders field errors, form-level errors and
-// the resulting short link
+// state via useActionState and renders field errors, form-level errors, the
+// resulting short link and the list of links created in this session
 // runs as a client component because useActionState keeps form state alive
-// in the browser between submissions
+// in the browser between submissions, and the session list plus its
+// optimistic pending row live in browser memory only
 
-import { useActionState } from "react";
+import { startTransition, useActionState, useOptimistic, useState } from "react";
 import { createLink, type ActionState } from "@/lib/actions";
+import { RecentLinks, type RecentLinkEntry } from "@/components/RecentLinks";
 import { ResultCard } from "@/components/ResultCard";
 import { SubmitButton } from "@/components/SubmitButton";
 
@@ -15,10 +17,77 @@ import { SubmitButton } from "@/components/SubmitButton";
 // show yet besides the empty form
 const initialState: ActionState = { status: "idle" };
 
+// caps the session list so it stays glanceable; older links simply fall off
+const RECENT_LINKS_LIMIT = 10;
+
+// narrows the row union to its variants once: created rows live in real
+// state, pending rows only ever exist inside the optimistic overlay
+type CreatedEntry = Extract<RecentLinkEntry, { kind: "created" }>;
+type PendingEntry = Extract<RecentLinkEntry, { kind: "pending" }>;
+
 export function ShortenerForm() {
-  // react calls createLink with (previousState, formData) on every submit;
+  // the real session list, newest first – only confirmed links ever land
+  // here; the list is deliberately memory-only (no accounts means no
+  // server-side link/person association, a refresh clears it)
+  const [createdLinks, setCreatedLinks] = useState<CreatedEntry[]>([]);
+
+  // optimistic overlay over the real list: while a submit is in flight the
+  // pending row sits on top, and outside a submit the overlay equals the
+  // real list. explicit type params widen the created-only base list to the
+  // full row union without a cast, keeping strict checking intact
+  const [recentEntries, addPendingEntry] = useOptimistic<
+    RecentLinkEntry[],
+    PendingEntry
+  >(createdLinks, (current, pending) =>
+    [pending, ...current].slice(0, RECENT_LINKS_LIMIT)
+  );
+
+  // wraps the server action so the pending row and the real-list commit
+  // happen around it without touching the action's state contract – the
+  // destination url is read from the form data on the client instead
+  async function shortenWithRecentEntry(
+    prevState: ActionState,
+    formData: FormData
+  ): Promise<ActionState> {
+    const rawUrl = formData.get("url");
+    const targetUrl = typeof rawUrl === "string" ? rawUrl : "";
+    // runs inside the form action (an async transition), which is where
+    // useOptimistic requires its setter to be called – the row appears in
+    // the very render that starts the submit. the id only needs to be
+    // unique among in-flight rows (the submit button disables during a
+    // request, so in practice there is one), but a random id keeps keys
+    // correct without leaning on that assumption
+    addPendingEntry({ kind: "pending", id: crypto.randomUUID(), targetUrl });
+
+    const result = await createLink(prevState, formData);
+
+    if (result.status === "success") {
+      // commits the confirmed row inside the same transition: react then
+      // drops the optimistic overlay and applies this update in a single
+      // render, so no frame without the row appears between the pending row
+      // vanishing and the real one arriving. the explicit startTransition
+      // matters – after an await the transition context does not carry over
+      // to state updates on its own
+      const createdEntry: CreatedEntry = {
+        kind: "created",
+        shortUrl: result.shortUrl,
+        targetUrl,
+      };
+      startTransition(() => {
+        setCreatedLinks((previous) =>
+          [createdEntry, ...previous].slice(0, RECENT_LINKS_LIMIT)
+        );
+      });
+    }
+    // on error the transition simply ends: the overlay reverts to the real
+    // list, which the failed submit never touched, so the pending row
+    // disappears while the form itself shows the error message
+    return result;
+  }
+
+  // react calls the wrapper with (previousState, formData) on every submit;
   // the returned state replaces the previous one and re-renders the form
-  const [state, formAction] = useActionState(createLink, initialState);
+  const [state, formAction] = useActionState(shortenWithRecentEntry, initialState);
 
   // narrows the discriminated union once so the jsx below stays readable –
   // typescript only exposes each field on its matching status variant
@@ -87,6 +156,12 @@ export function ShortenerForm() {
           the card per result, so each new link refocuses and starts with a
           clean copy state */}
       {shortUrl ? <ResultCard key={shortUrl} shortUrl={shortUrl} /> : null}
+      {/* session list below the result card: the newest link shows in both
+          on purpose – the card is transient action feedback with the copy
+          affordance (replaced by the next submit), the list is the session's
+          durable record, and the pending row must confirm into a real row in
+          place rather than vanish into the card */}
+      <RecentLinks entries={recentEntries} />
     </div>
   );
 }
